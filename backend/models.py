@@ -31,6 +31,10 @@ class Room(BaseModel):
     max_rounds: int = 5
     created_at: datetime = None
     article: dict = None
+    quiz_data: Optional[dict] = None
+    
+    class Config:
+        extra = "allow"
 
 
 class GuessRequest(BaseModel):

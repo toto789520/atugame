@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Generate config.js with environment variables
+cat > /usr/share/nginx/html/config.js <<EOF
+window.ENV = {
+    BACKEND_PORT: '${BACKEND_PORT:-8000}',
+    API_URL: window.location.hostname === 'localhost' ? 'http://localhost:${BACKEND_PORT:-8000}' : ''
+};
+EOF
+
+# Start nginx
+nginx -g 'daemon off;'

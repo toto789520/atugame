@@ -17,6 +17,12 @@ Copiez le contenu du fichier `docker-compose.yml` dans Coolify.
 Dans l'onglet "Environment Variables", ajoutez :
 
 ```
+# Ports (changez si vous avez des conflits)
+FRONTEND_PORT=80
+BACKEND_PORT=8000
+OLLAMA_PORT=11434
+
+# Configuration
 OLLAMA_MODEL=llama3
 SCRAPE_INTERVAL=3600
 ```
@@ -120,6 +126,23 @@ OLLAMA_MODEL=mistral  # ou llama2, codellama
 ```
 SCRAPE_INTERVAL=1800  # 30 minutes (en secondes)
 ```
+
+### Changer les ports (si conflits)
+Créez un fichier `.env` à la racine :
+```
+# Ports externes (ceux exposés sur votre machine)
+FRONTEND_PORT=8080      # Par défaut: 80
+BACKEND_PORT=8001       # Par défaut: 8000
+OLLAMA_PORT=11435       # Par défaut: 11434
+```
+
+Puis relancez :
+```bash
+docker-compose down
+docker-compose up -d
+```
+
+💡 **Note** : Les ports internes des conteneurs restent inchangés, seuls les ports exposés changent.
 
 ## 🐛 Dépannage
 

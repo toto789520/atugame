@@ -6,11 +6,12 @@ services:
     build: ./backend
     container_name: news-quiz-backend
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     environment:
-      - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_MODEL=llama3
-      - SCRAPE_INTERVAL=3600
+      - PORT=8000
+      - OLLAMA_URL=http://ollama:${OLLAMA_PORT:-11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3}
+      - SCRAPE_INTERVAL=${SCRAPE_INTERVAL:-3600}
     depends_on:
       - ollama
     networks:
@@ -22,7 +23,9 @@ services:
     build: ./frontend
     container_name: news-quiz-frontend
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-80}:80"
+    environment:
+      - BACKEND_PORT=${BACKEND_PORT:-8000}
     depends_on:
       - backend
     networks:
@@ -36,7 +39,7 @@ services:
     volumes:
       - ollama-data:/root/.ollama
     ports:
-      - "11434:11434"
+      - "${OLLAMA_PORT:-11434}:11434"
     networks:
       - news-quiz-network
     restart: unless-stopped
@@ -45,7 +48,7 @@ services:
       sh -c "
         /bin/ollama serve &
         sleep 5
-        /bin/ollama pull llama3
+        /bin/ollama pull ${OLLAMA_MODEL:-llama3}
         tail -f /dev/null
       "
 

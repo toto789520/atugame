@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News Quiz Game - Devinez l'actualité !</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>📰 News Quiz</h1>
+            <p>Devinez l'actualité du jour !</p>
+        </header>
+
+        <!-- Home Screen -->
+        <div id="home-screen" class="screen">
+            <div class="home-options">
+                <button id="btn-create" class="btn btn-primary">
+                    <span class="icon">🎮</span>
+                    Créer une partie
+                </button>
+                <div class="divider">ou</div>
+                <div class="join-form">
+                    <input type="text" id="room-code" placeholder="Code de la room (ex: ABC123)" maxlength="6">
+                    <input type="text" id="player-name-join" placeholder="Votre pseudo">
+                    <button id="btn-join" class="btn btn-secondary">
+                        <span class="icon">🚪</span>
+                        Rejoindre
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Room Screen -->
+        <div id="create-screen" class="screen hidden">
+            <h2>Créer une partie</h2>
+            <div class="form-group">
+                <input type="text" id="player-name-create" placeholder="Votre pseudo">
+                <button id="btn-create-room" class="btn btn-primary">Créer</button>
+            </div>
+            <button id="btn-back-home" class="btn btn-link">← Retour</button>
+        </div>
+
+        <!-- Lobby Screen -->
+        <div id="lobby-screen" class="screen hidden">
+            <div class="lobby-info">
+                <h2>Salle d'attente</h2>
+                <div class="room-code-display">
+                    <span>Code :</span>
+                    <code id="lobby-code"></code>
+                    <button id="btn-copy-code" class="btn btn-small">📋</button>
+                </div>
+            </div>
+
+            <div class="players-list">
+                <h3>Joueurs (<span id="player-count">0</span>)</h3>
+                <ul id="players-container"></ul>
+            </div>
+
+            <div class="lobby-actions">
+                <button id="btn-start-game" class="btn btn-primary hidden">Démarrer la partie</button>
+                <button id="btn-leave-lobby" class="btn btn-danger">Quitter</button>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen hidden">
+            <div class="game-header">
+                <div class="round-info">
+                    <span id="round-display">Question 1/5</span>
+                    <div class="timer" id="timer">60</div>
+                </div>
+                <div class="score-display">
+                    Score : <span id="current-score">0</span>
+                </div>
+            </div>
+
+            <div class="question-container">
+                <div id="question-text" class="question-text">
+                    Chargement de la question...
+                </div>
+                <div id="hints-container" class="hints-container"></div>
+            </div>
+
+            <div class="answer-section">
+                <input type="text" id="answer-input" placeholder="Votre réponse..." autocomplete="off">
+                <button id="btn-submit-answer" class="btn btn-primary">Valider</button>
+            </div>
+
+            <div id="feedback" class="feedback hidden"></div>
+
+            <div class="game-sidebar">
+                <div class="mini-leaderboard">
+                    <h4>🏆 Classement</h4>
+                    <ul id="game-leaderboard"></ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result Screen -->
+        <div id="result-screen" class="screen hidden">
+            <h2>🎉 Partie terminée !</h2>
+            <div class="final-article">
+                <h3>L'actualité était :</h3>
+                <div id="article-reveal" class="article-card"></div>
+            </div>
+            <div class="final-leaderboard">
+                <h3>🏆 Classement final</h3>
+                <ul id="final-leaderboard"></ul>
+            </div>
+            <div class="result-actions">
+                <button id="btn-new-game" class="btn btn-primary">Nouvelle partie</button>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loading" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <p id="loading-text">Chargement...</p>
+        </div>
+
+        <!-- Error Toast -->
+        <div id="toast" class="toast hidden"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

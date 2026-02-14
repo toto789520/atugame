@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build: ./backend
+    container_name: news-quiz-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3
+      - SCRAPE_INTERVAL=3600
+    depends_on:
+      - ollama
+    networks:
+      - news-quiz-network
+    restart: unless-stopped
+
+  # Frontend (Nginx)
+  frontend:
+    build: ./frontend
+    container_name: news-quiz-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - news-quiz-network
+    restart: unless-stopped
+
+  # Ollama (AI)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: news-quiz-ollama
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - news-quiz-network
+    restart: unless-stopped
+    # Pull model on first start (optional - can be done manually)
+    entrypoint: >
+      sh -c "
+        /bin/ollama serve &
+        sleep 5
+        /bin/ollama pull llama3
+        tail -f /dev/null
+      "
+
+networks:
+  news-quiz-network:
+    driver: bridge
+
+volumes:
+  ollama-data:

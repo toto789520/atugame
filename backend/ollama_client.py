@@ -60,9 +60,14 @@ Règles :
                     json={
                         "model": self.model,
                         "prompt": prompt,
-                        "stream": False
+                        "stream": False,
+                        "options": {
+                            "temperature": 0.7,
+                            "num_predict": 500,
+                            "num_ctx": 2048
+                        }
                     },
-                    timeout=aiohttp.ClientTimeout(total=60)
+                    timeout=aiohttp.ClientTimeout(total=180)
                 ) as response:
                     if response.status == 200:
                         data = await response.json()

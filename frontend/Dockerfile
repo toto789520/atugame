@@ -1,7 +1,7 @@
 FROM nginx:alpine
 
-# Install envsubst
-RUN apk add --no-cache gettext
+# Install envsubst and wget
+RUN apk add --no-cache gettext wget
 
 # Copy static files
 COPY . /usr/share/nginx/html
@@ -22,7 +22,7 @@ RUN echo 'server { \
     } \
     \
     location /api/ { \
-        proxy_pass http://backend:${BACKEND_PORT}/api/; \
+        proxy_pass ${BACKEND_URL}/api/; \
         proxy_http_version 1.1; \
         proxy_set_header Upgrade $http_upgrade; \
         proxy_set_header Connection "upgrade"; \

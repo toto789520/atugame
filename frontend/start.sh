@@ -1,15 +1,35 @@
 #!/bin/sh
 
+echo "=== Starting Frontend Configuration ==="
+echo "BACKEND_PORT: ${BACKEND_PORT:-8000}"
+
 # Substitute environment variables in nginx config
 envsubst '$BACKEND_PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
 
-# Generate config.js with environment variables
+echo "=== Nginx Config Generated ==="
+cat /etc/nginx/conf.d/default.conf
+
+# Always use relative URL for API (nginx will proxy to backend)
+echo "=== Generating config.js ==="
 cat > /usr/share/nginx/html/config.js <<EOF
 window.ENV = {
     BACKEND_PORT: '${BACKEND_PORT:-8000}',
-    API_URL: window.location.hostname === 'localhost' ? 'http://localhost:${BACKEND_PORT:-8000}' : ''
+    API_URL: ''
 };
 EOF
 
-# Start nginx
+cat /usr/share/nginx/html/config.js
+
+# Wait for backend to be ready
+echo "=== Waiting for backend... ==="
+for i in 1 2 3 4 5; do
+    if wget -q --spider http://backend:${BACKEND_PORT:-8000}/api/health 2>/dev/null; then
+        echo "Backend is ready!"
+        break
+    fi
+    echo "Attempt $i: Backend not ready yet, waiting..."
+    sleep 2
+done
+
+echo "=== Starting Nginx ==="
 nginx -g 'daemon off;'

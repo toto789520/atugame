@@ -9,7 +9,8 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
       - PORT=8000
-      - OLLAMA_URL=http://ollama:${OLLAMA_PORT:-11434}
+      - HOST=0.0.0.0
+      - OLLAMA_URL=http://ollama:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3}
       - SCRAPE_INTERVAL=${SCRAPE_INTERVAL:-3600}
     depends_on:
@@ -17,6 +18,12 @@ services:
     networks:
       - news-quiz-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Frontend (Nginx)
   frontend:

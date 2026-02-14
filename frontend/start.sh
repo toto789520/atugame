@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Substitute environment variables in nginx config
+envsubst '$BACKEND_PORT' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
+
 # Generate config.js with environment variables
 cat > /usr/share/nginx/html/config.js <<EOF
 window.ENV = {

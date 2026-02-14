@@ -8,6 +8,18 @@ class OllamaClient:
         self.base_url = base_url or os.getenv('OLLAMA_URL', 'http://ollama:11434')
         self.model = os.getenv('OLLAMA_MODEL', 'llama3')
 
+    async def is_ready(self) -> bool:
+        """Check if the Ollama API is reachable."""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"{self.base_url}/api/tags",
+                    timeout=aiohttp.ClientTimeout(total=5)
+                ) as response:
+                    return response.status == 200
+        except Exception:
+            return False
+
     async def generate_questions(self, article_title: str, article_content: str) -> Optional[Dict]:
         """Génère des questions avec un prompt strict pour forcer le JSON"""
         
@@ -139,3 +151,7 @@ RÉPONSE JSON : [/INST]"""
             "answer_keywords": article_title.lower().split(),
             "full_answer": article_title
         }
+
+
+# Singleton instance used by the API layer
+ollama_client = OllamaClient()

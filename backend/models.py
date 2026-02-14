@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -9,6 +9,8 @@ class Player(BaseModel):
     score: int = 0
     is_host: bool = False
     connected: bool = True
+    current_round: int = 0  # Round actuel du joueur
+    has_finished: bool = False  # A terminé toutes les questions
 
 
 class Question(BaseModel):
@@ -32,6 +34,8 @@ class Room(BaseModel):
     created_at: datetime = None
     article: dict = None
     quiz_data: Optional[dict] = None
+    is_loading: bool = False  # Indique si le jeu est en chargement
+    loading_message: str = ""  # Message de chargement
     
     class Config:
         extra = "allow"
@@ -59,3 +63,5 @@ class GameState(BaseModel):
     current_round: int
     max_rounds: int
     time_remaining: Optional[int]
+    is_loading: bool = False
+    loading_message: str = ""

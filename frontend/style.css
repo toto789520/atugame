@@ -535,6 +535,150 @@ input[type="text"]::placeholder {
     to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+/* Global Loader - Visible par tous les joueurs */
+.global-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.loader-content {
+    text-align: center;
+}
+
+.spinner-large {
+    width: 80px;
+    height: 80px;
+    border: 6px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+.loader-message {
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+/* Small spinner for buttons */
+.spinner-small {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+}
+
+/* Waiting message in lobby */
+.waiting-message {
+    background: rgba(99, 102, 241, 0.2);
+    border: 2px solid var(--primary);
+    padding: 15px 25px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.waiting-message p {
+    color: var(--primary);
+    font-weight: 600;
+    margin: 0;
+}
+
+/* Status badges */
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.status-badge.finished {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--success);
+    border: 1px solid var(--success);
+}
+
+.status-badge.in-progress {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--warning);
+    border: 1px solid var(--warning);
+}
+
+.status-badge.not-started {
+    background: rgba(148, 163, 184, 0.2);
+    color: var(--text-secondary);
+    border: 1px solid var(--text-secondary);
+}
+
+/* Progress bar */
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-input);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+/* Improved final leaderboard */
+.final-leaderboard li {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.player-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.player-details {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.player-name {
+    font-weight: 600;
+}
+
+.score-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-left: auto;
+}
+
+.score-info .score {
+    font-weight: bold;
+    color: var(--success);
+    font-size: 1.1rem;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .header h1 {
@@ -553,5 +697,21 @@ input[type="text"]::placeholder {
         flex-direction: column;
         gap: 15px;
         text-align: center;
+    }
+    
+    .final-leaderboard li {
+        padding: 12px;
+    }
+    
+    .player-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .score-info {
+        align-items: flex-start;
+        margin-left: 0;
+        width: 100%;
     }
 }

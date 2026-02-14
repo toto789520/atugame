@@ -87,21 +87,64 @@ class RoomManager:
         
         room.status = "playing"
         room.current_round = 1
+        # Initialize all players to round 1
+        for player in room.players:
+            player.current_round = 1
+            player.has_finished = False
         return room
     
-    def submit_guess(self, code: str, player_id: str, guess: str, is_correct: bool):
-        """Submit a guess and update scores"""
+    def set_loading(self, code: str, is_loading: bool, message: str = ""):
+        """Set loading state for all players"""
+        room = self.get_room(code)
+        if room:
+            room.is_loading = is_loading
+            room.loading_message = message
+    
+    def submit_guess(self, code: str, player_id: str, guess: str, is_correct: bool) -> dict:
+        """Submit a guess and update scores. Returns info about player's progress"""
         room = self.get_room(code)
         if not room:
-            return
+            return {"error": "Room not found"}
         
-        for player in room.players:
-            if player.id == player_id and is_correct:
-                # Points based on how fast they answered
-                player.score += 100
+        player = next((p for p in room.players if p.id == player_id), None)
+        if not player:
+            return {"error": "Player not found"}
+        
+        if is_correct:
+            # Points based on current round (plus on est rapide, plus on gagne de points)
+            points = max(100 - (player.current_round - 1) * 10, 50)
+            player.score += points
+            
+            # Passer à la question suivante pour ce joueur
+            player.current_round += 1
+            
+            # Vérifier si le joueur a terminé toutes les questions
+            if player.current_round > room.max_rounds:
+                player.has_finished = True
+                player.current_round = room.max_rounds  # Reste sur la dernière
+                return {
+                    "correct": True,
+                    "finished": True,
+                    "score": player.score,
+                    "current_round": player.current_round
+                }
+            
+            return {
+                "correct": True,
+                "finished": False,
+                "score": player.score,
+                "current_round": player.current_round
+            }
+        
+        return {
+            "correct": False,
+            "finished": False,
+            "score": player.score,
+            "current_round": player.current_round
+        }
     
     def next_round(self, code: str) -> Optional[Room]:
-        """Move to next round"""
+        """Move to next round (global)"""
         room = self.get_room(code)
         if not room:
             return None
@@ -113,10 +156,38 @@ class RoomManager:
         
         return room
     
-    def get_leaderboard(self, code: str) -> List[Player]:
-        """Get sorted leaderboard"""
+    def check_all_finished(self, code: str) -> bool:
+        """Check if all players have finished"""
+        room = self.get_room(code)
+        if not room:
+            return False
+        
+        return all(player.has_finished for player in room.players)
+    
+    def get_leaderboard(self, code: str) -> List[dict]:
+        """Get sorted leaderboard with progress info"""
         room = self.get_room(code)
         if not room:
             return []
         
-        return sorted(room.players, key=lambda p: p.score, reverse=True)
+        # Trier par score, puis par progression (current_round)
+        sorted_players = sorted(
+            room.players, 
+            key=lambda p: (p.score, p.current_round), 
+            reverse=True
+        )
+        
+        # Ajouter les infos de progression
+        return [
+            {
+                "id": p.id,
+                "name": p.name,
+                "score": p.score,
+                "is_host": p.is_host,
+                "current_round": p.current_round,
+                "max_rounds": room.max_rounds,
+                "has_finished": p.has_finished,
+                "progress_percent": (p.current_round / room.max_rounds) * 100
+            }
+            for p in sorted_players
+        ]

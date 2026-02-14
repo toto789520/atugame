@@ -125,39 +125,71 @@ async def start_game(code: str, player_id: str):
     if room.host_id != player_id:
         raise HTTPException(status_code=403, detail="Only host can start the game")
     
-    # Get random article
-    article = scraper.get_random_article()
-    if not article:
-        raise HTTPException(status_code=503, detail="No articles available")
+    # Set loading state for all players
+    room_manager.set_loading(code, True, "Génération des questions avec l'IA...")
     
-    # Get article content
-    content = scraper.get_article_content(article['url'])
-    
-    # Generate questions with Ollama
-    quiz_data = await ollama_client.generate_questions(article['title'], content)
-    
-    if not quiz_data:
-        raise HTTPException(status_code=503, detail="Failed to generate questions")
-    
-    # Update room with game data
-    room = room_manager.start_game(code)
-    room.article = {
-        "title": article['title'],
-        "url": article['url'],
-        "source": article['source']
-    }
-    room.current_question = {
-        "id": 1,
-        "text": quiz_data['questions'][0]['text'],
-        "article_title": quiz_data['title'],
-        "article_url": article['url'],
-        "hints": quiz_data['hints'],
-        "answer_keywords": quiz_data['answer_keywords'],
-        "difficulty": 1
-    }
-    room.quiz_data = quiz_data
+    try:
+        # Get random article
+        article = scraper.get_random_article()
+        if not article:
+            raise HTTPException(status_code=503, detail="No articles available")
+        
+        # Get article content
+        content = scraper.get_article_content(article['url'])
+        
+        # Generate questions with Ollama
+        quiz_data = await ollama_client.generate_questions(article['title'], content)
+        
+        if not quiz_data:
+            raise HTTPException(status_code=503, detail="Failed to generate questions")
+        
+        # Update room with game data
+        room = room_manager.start_game(code)
+        room.article = {
+            "title": article['title'],
+            "url": article['url'],
+            "source": article['source']
+        }
+        room.quiz_data = quiz_data
+        
+        # Set first question
+        await update_question_for_round(code, 1)
+        
+    finally:
+        # Remove loading state
+        room_manager.set_loading(code, False)
     
     return room
+
+async def update_question_for_round(code: str, round_num: int):
+    """Update the current question for a specific round"""
+    room = room_manager.get_room(code)
+    if not room or not room.quiz_data:
+        return
+    
+    questions = room.quiz_data.get('questions', [])
+    hints = room.quiz_data.get('hints', [])
+    
+    if round_num <= len(questions):
+        question_data = questions[round_num - 1]
+        
+        # Get hints for this round (distribute hints across rounds)
+        round_hints = []
+        hints_per_round = max(1, len(hints) // room.max_rounds)
+        start_idx = (round_num - 1) * hints_per_round
+        end_idx = min(start_idx + hints_per_round, len(hints))
+        round_hints = hints[start_idx:end_idx]
+        
+        room.current_question = {
+            "id": round_num,
+            "text": question_data['text'],
+            "article_title": room.quiz_data.get('title', 'Article'),
+            "article_url": room.article['url'],
+            "hints": round_hints,
+            "answer_keywords": room.quiz_data.get('answer_keywords', []),
+            "difficulty": round_num
+        }
+        room.current_round = round_num
 
 @app.post("/api/rooms/{code}/guess")
 async def submit_guess(code: str, request: GuessRequest):
@@ -173,19 +205,52 @@ async def submit_guess(code: str, request: GuessRequest):
     # Check answer with Ollama
     is_correct, feedback = await ollama_client.check_answer(
         request.guess,
-        room.quiz_data['answer_keywords'],
-        room.quiz_data['full_answer']
+        room.quiz_data.get('answer_keywords', []),
+        room.quiz_data.get('full_answer', '')
     )
     
-    # Update score if correct
-    if is_correct:
-        room_manager.submit_guess(code, request.player_id, request.guess, True)
+    # Update player progress
+    result = room_manager.submit_guess(code, request.player_id, request.guess, is_correct)
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    # If correct and not finished, update question for this player's round
+    if is_correct and not result.get("finished"):
+        player = next((p for p in room.players if p.id == request.player_id), None)
+        if player:
+            # Update global question to match player's round (for simplicity)
+            await update_question_for_round(code, player.current_round)
+    
+    # Check if all players finished
+    if room_manager.check_all_finished(code):
+        room.status = "finished"
     
     return {
         "correct": is_correct,
         "feedback": feedback,
+        "score": result.get("score", 0),
+        "current_round": result.get("current_round", 1),
+        "finished": result.get("finished", False),
         "player": next((p for p in room.players if p.id == request.player_id), None)
     }
+
+@app.post("/api/rooms/{code}/next-round")
+async def next_round(code: str, player_id: str):
+    """Move to next round (for a specific player)"""
+    room = room_manager.get_room(code)
+    
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    player = next((p for p in room.players if p.id == player_id), None)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    # Update question for this player's next round
+    await update_question_for_round(code, player.current_round)
+    
+    return room
 
 @app.get("/api/rooms/{code}/leaderboard")
 async def get_leaderboard(code: str):

@@ -7,6 +7,7 @@ let playerId = null;
 let currentQuestion = null;
 let gameState = null;
 let pollingInterval = null;
+let isSubmitting = false;
 
 // DOM Elements
 const screens = {
@@ -43,6 +44,33 @@ function showToast(message, type = 'info') {
     setTimeout(() => {
         toast.classList.add('hidden');
     }, 3000);
+}
+
+function showGlobalLoading(message = 'Chargement...') {
+    // Afficher un overlay de chargement global
+    let globalLoader = document.getElementById('global-loader');
+    if (!globalLoader) {
+        globalLoader = document.createElement('div');
+        globalLoader.id = 'global-loader';
+        globalLoader.className = 'global-loader';
+        globalLoader.innerHTML = `
+            <div class="loader-content">
+                <div class="spinner-large"></div>
+                <p class="loader-message">${message}</p>
+            </div>
+        `;
+        document.body.appendChild(globalLoader);
+    } else {
+        globalLoader.querySelector('.loader-message').textContent = message;
+        globalLoader.classList.remove('hidden');
+    }
+}
+
+function hideGlobalLoading() {
+    const globalLoader = document.getElementById('global-loader');
+    if (globalLoader) {
+        globalLoader.classList.add('hidden');
+    }
 }
 
 // API Functions
@@ -123,16 +151,24 @@ async function startGame() {
         });
         
         currentRoom = data;
+        hideLoading();
         showGame();
     } catch (error) {
         showToast(error.message, 'error');
-    } finally {
         hideLoading();
     }
 }
 
 async function submitGuess(guess) {
-    if (!guess.trim()) return;
+    if (!guess.trim() || isSubmitting) return;
+    
+    isSubmitting = true;
+    const submitBtn = document.getElementById('btn-submit-answer');
+    const answerInput = document.getElementById('answer-input');
+    
+    // Afficher le chargement sur le bouton
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-small"></span> Vérification...';
     
     try {
         const data = await apiCall(`/rooms/${currentRoom.code}/guess`, {
@@ -148,17 +184,94 @@ async function submitGuess(guess) {
         feedback.textContent = data.feedback;
         feedback.classList.remove('hidden');
         
+        // Mettre à jour le score
+        document.getElementById('current-score').textContent = data.score;
+        
         if (data.correct) {
-            document.getElementById('current-score').textContent = data.player.score;
-            document.getElementById('answer-input').disabled = true;
-            document.getElementById('btn-submit-answer').disabled = true;
+            answerInput.value = '';
             
-            setTimeout(() => {
-                showResults();
-            }, 2000);
+            if (data.finished) {
+                // Le joueur a terminé toutes les questions
+                showToast('Félicitations ! Tu as terminé toutes les questions !', 'success');
+                submitBtn.innerHTML = '✓ Terminé';
+                answerInput.disabled = true;
+                
+                // Vérifier si tous les joueurs ont fini
+                await checkAllPlayersFinished();
+            } else {
+                // Passer à la question suivante
+                submitBtn.innerHTML = 'Question suivante →';
+                submitBtn.onclick = () => nextQuestion(data.current_round);
+                answerInput.disabled = true;
+                
+                showToast(`Bonne réponse ! Question ${data.current_round}/${currentRoom.max_rounds}`, 'success');
+            }
+        } else {
+            // Réponse incorrecte - permettre de réessayer
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Valider';
+            answerInput.focus();
         }
     } catch (error) {
         showToast(error.message, 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Valider';
+    } finally {
+        isSubmitting = false;
+    }
+}
+
+async function nextQuestion(roundNum) {
+    // Passer à la question suivante
+    const submitBtn = document.getElementById('btn-submit-answer');
+    const answerInput = document.getElementById('answer-input');
+    const feedback = document.getElementById('feedback');
+    
+    showLoading('Chargement de la question suivante...');
+    
+    try {
+        // Rafraîchir la room pour obtenir la nouvelle question
+        await refreshRoom();
+        
+        // Réinitialiser l'interface
+        feedback.classList.add('hidden');
+        answerInput.disabled = false;
+        answerInput.value = '';
+        answerInput.focus();
+        
+        submitBtn.innerHTML = 'Valider';
+        submitBtn.onclick = () => {
+            const input = document.getElementById('answer-input');
+            submitGuess(input.value);
+        };
+        
+        // Mettre à jour l'affichage
+        updateGameDisplay();
+        
+    } catch (error) {
+        showToast('Erreur lors du chargement de la question', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function checkAllPlayersFinished() {
+    try {
+        const data = await apiCall(`/rooms/${currentRoom.code}`);
+        
+        // Vérifier si tous les joueurs ont terminé
+        const allFinished = data.players.every(p => p.has_finished);
+        
+        if (allFinished || data.status === 'finished') {
+            setTimeout(() => {
+                showResults();
+            }, 3000);
+        } else {
+            showToast('En attente des autres joueurs...', 'info');
+            // Continuer le polling pour voir quand la partie finit
+        }
+    } catch (error) {
+        console.error('Error checking players:', error);
     }
 }
 
@@ -184,20 +297,29 @@ async function refreshRoom() {
     
     try {
         const data = await apiCall(`/rooms/${currentRoom.code}`);
+        
+        // Vérifier si l'état de chargement a changé
+        if (data.is_loading && !currentRoom.is_loading) {
+            showGlobalLoading(data.loading_message || 'Chargement...');
+        } else if (!data.is_loading && currentRoom.is_loading) {
+            hideGlobalLoading();
+        }
+        
         currentRoom = data;
         
         if (data.status === 'playing' && screens.lobby.classList.contains('hidden') === false) {
+            hideGlobalLoading();
             showGame();
         }
         
         if (data.status === 'finished') {
+            hideGlobalLoading();
             showResults();
         }
         
         updateUI();
     } catch (error) {
         console.error('Error refreshing room:', error);
-        showToast('Erreur de connexion', 'error');
     }
 }
 
@@ -213,6 +335,14 @@ function showLobby() {
         startBtn.classList.remove('hidden');
     } else {
         startBtn.classList.add('hidden');
+        // Afficher un message pour les non-hosts
+        const waitingMsg = document.getElementById('waiting-message') || document.createElement('div');
+        waitingMsg.id = 'waiting-message';
+        waitingMsg.className = 'waiting-message';
+        waitingMsg.innerHTML = '<p>⏳ En attente que l\'hôte lance la partie...</p>';
+        if (!document.getElementById('waiting-message')) {
+            document.querySelector('.lobby-actions').prepend(waitingMsg);
+        }
     }
     
     updatePlayersList();
@@ -220,10 +350,22 @@ function showLobby() {
 
 function showGame() {
     showScreen('game');
+    updateGameDisplay();
+}
+
+function updateGameDisplay() {
+    if (!currentRoom) return;
+    
+    const currentPlayer = currentRoom.players.find(p => p.id === playerId);
+    if (!currentPlayer) return;
+    
+    // Afficher la progression du joueur actuel
+    const playerRound = currentPlayer.current_round || 1;
+    document.getElementById('round-display').textContent = `Question ${Math.min(playerRound, currentRoom.max_rounds)}/${currentRoom.max_rounds}`;
+    document.getElementById('current-score').textContent = currentPlayer.score || 0;
     
     if (currentRoom.current_question) {
         document.getElementById('question-text').textContent = currentRoom.current_question.text;
-        document.getElementById('round-display').textContent = `Question ${currentRoom.current_round}/${currentRoom.max_rounds}`;
         
         // Show hints gradually
         const hintsContainer = document.getElementById('hints-container');
@@ -250,7 +392,7 @@ function showHintsGradually(hints) {
             index++;
             
             if (index < hints.length) {
-                setTimeout(showNextHint, 20000); // Show next hint after 20 seconds
+                setTimeout(showNextHint, 15000); // Show next hint after 15 seconds
             }
         }
     }
@@ -272,7 +414,7 @@ async function showResults() {
         `;
     }
     
-    // Show final leaderboard
+    // Show final leaderboard with progress
     try {
         const data = await apiCall(`/rooms/${currentRoom.code}/leaderboard`);
         const leaderboard = document.getElementById('final-leaderboard');
@@ -280,13 +422,37 @@ async function showResults() {
         
         data.leaderboard.forEach((player, index) => {
             const li = document.createElement('li');
+            
+            // Déterminer le statut du joueur
+            let statusBadge = '';
+            if (player.has_finished) {
+                statusBadge = '<span class="status-badge finished">✓ Terminé</span>';
+            } else if (player.current_round > 1) {
+                statusBadge = `<span class="status-badge in-progress">⏳ Q${player.current_round}/${player.max_rounds}</span>`;
+            } else {
+                statusBadge = '<span class="status-badge not-started">Pas commencé</span>';
+            }
+            
+            // Barre de progression
+            const progressBar = `
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${player.progress_percent}%"></div>
+                </div>
+            `;
+            
             li.innerHTML = `
                 <div class="player-info">
                     <span class="rank">${index + 1}</span>
-                    <span>${player.name}</span>
-                    ${player.is_host ? '<span class="host-badge">HOST</span>' : ''}
+                    <div class="player-details">
+                        <span class="player-name">${player.name}</span>
+                        ${player.is_host ? '<span class="host-badge">HOST</span>' : ''}
+                        ${statusBadge}
+                    </div>
                 </div>
-                <span class="score">${player.score} pts</span>
+                <div class="score-info">
+                    <span class="score">${player.score} pts</span>
+                    ${progressBar}
+                </div>
             `;
             leaderboard.appendChild(li);
         });
@@ -328,15 +494,20 @@ function updatePlayersList() {
 
 function updateLeaderboard() {
     const leaderboard = document.getElementById('game-leaderboard');
+    if (!leaderboard) return;
+    
     leaderboard.innerHTML = '';
     
     const sortedPlayers = [...currentRoom.players].sort((a, b) => b.score - a.score);
     
     sortedPlayers.forEach((player, index) => {
         const li = document.createElement('li');
+        const progress = player.current_round || 1;
+        const maxRounds = currentRoom.max_rounds;
+        
         li.innerHTML = `
-            <span>${index + 1}. ${player.name}</span>
-            <span>${player.score} pts</span>
+            <span>${index + 1}. ${player.name} ${player.id === playerId ? '(Toi)' : ''}</span>
+            <span>${player.score || 0} pts (Q${Math.min(progress, maxRounds)}/${maxRounds})</span>
         `;
         leaderboard.appendChild(li);
     });
